@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .connectors import read_table
+from .connectors import READERS
 from .metadata import ROOT, get_active_datasets, get_active_rules
 from .rules import get_rule
 
@@ -23,9 +23,9 @@ def load_dataset(ds):
             path = ROOT / path
         # read everything as string first - type issues are DQ findings, not crashes
         return pd.read_csv(path, dtype=str, keep_default_na=False)
-    if ds["source_type"] == "table":
-        # source_location = DB.SCHEMA.TABLE in Snowflake
-        return read_table(ds["source_location"])
+    if ds["source_type"] in READERS:
+        # database sources: source_location = DB.SCHEMA.TABLE / SCHEMA.TABLE
+        return READERS[ds["source_type"]](ds["source_location"])
     raise NotImplementedError(f"source_type {ds['source_type']} not supported yet")
 
 
