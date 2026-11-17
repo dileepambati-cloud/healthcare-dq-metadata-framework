@@ -61,3 +61,24 @@ def test_settings_from_env(monkeypatch):
     monkeypatch.delenv("SNOWFLAKE_ROLE", raising=False)
     s = connectors.snowflake_settings()
     assert s["account"] == "acct" and "role" not in s
+
+
+# ---------------- Oracle
+def test_read_oracle_table_uses_fetch_first():
+    conn = FakeConn()
+    df = connectors.read_oracle_table("CLAIMS_OWNER.CLAIMS", limit=10, conn=conn)
+    assert conn.cur.sql == "SELECT * FROM CLAIMS_OWNER.CLAIMS FETCH FIRST 10 ROWS ONLY"
+    assert len(df) == 2
+
+
+def test_oracle_missing_settings(monkeypatch):
+    for var in connectors.ORACLE_ENV.values():
+        monkeypatch.delenv(var, raising=False)
+    with pytest.raises(EnvironmentError) as err:
+        connectors.oracle_settings()
+    assert "ORACLE_DSN" in str(err.value)
+
+
+def test_readers_registry():
+    assert connectors.READERS["oracle"] is connectors.read_oracle_table
+    assert connectors.READERS["snowflake"] is connectors.read_table
