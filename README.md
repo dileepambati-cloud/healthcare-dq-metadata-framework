@@ -80,19 +80,44 @@ python run_dq.py --db dq.db           # keep history in a file so volume/drift c
 python -m pytest -q                   # unit + engine tests
 ```
 
-### Running against Snowflake
+### Sources
 
-Set `source_type = 'table'` and `source_location = 'DB.SCHEMA.TABLE'` for a dataset in
-`dq_dataset_config`, then:
+| source_type | source_location | Driver |
+|---|---|---|
+| `csv` | path to file | built in |
+| `snowflake` (or `table`) | `DB.SCHEMA.TABLE` | `snowflake-connector-python` |
+| `oracle` | `SCHEMA.TABLE` | `oracledb` (thin mode, no Oracle client needed) |
+
+Every source is loaded as text so a bad value shows up as a DQ failure instead of a crash.
+
+### Running against Snowflake / Oracle
+
+Set `source_type` and `source_location` for a dataset in `dq_dataset_config`, then:
 
 ```bash
-pip install snowflake-connector-python
-cp .env.example .env      # fill in account, user, warehouse ...
+pip install snowflake-connector-python oracledb   # whichever you need
+cp .env.example .env      # fill in the connection settings
 set -a; source .env; set +a
 python run_dq.py --db dq.db
 ```
 
 Credentials are read from environment variables only - nothing is stored in the config tables.
+
+## Report and alerts
+
+```bash
+python run_dq.py --db dq.db --report           # writes output/dq_report_<run_id>.html
+python run_dq.py --db dq.db --report --alert   # also emails HIGH severity failures
+```
+
+The report shows summary cards (checks, passed, failed, high-severity failed) and a
+table with failures listed first. `--alert` sends one email per run listing every failed
+`HIGH` rule with the HTML report attached. SMTP settings come from `SMTP_HOST`,
+`SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `ALERT_FROM` and `ALERT_TO`; if `SMTP_HOST`
+is not set the alert is only logged, so local runs and CI don't need a mail server.
+
+The process exits with code `1` when a HIGH rule fails, so a scheduler (Airflow, cron,
+CI) can stop downstream jobs.
 
 Sample output:
 
@@ -122,7 +147,9 @@ claims     member_exists                  1   99.17  FAIL
 │   ├── metadata.py               # create/read config tables
 │   ├── rules.py                  # row-level rule library + registry
 │   ├── monitors.py               # freshness, volume, schema drift
-│   ├── connectors.py             # Snowflake reader
+│   ├── connectors.py             # Snowflake + Oracle readers
+│   ├── reporting.py              # HTML run report
+│   ├── alerts.py                 # email on HIGH failures
 │   └── engine.py                 # runs rules, writes logs
 ├── tests/
 └── run_dq.py
@@ -135,10 +162,10 @@ claims     member_exists                  1   99.17  FAIL
 - [x] Unit tests
 - [x] Freshness, volume and schema-drift checks
 - [x] Snowflake connector (run the same rules against Snowflake tables)
-- [ ] Oracle source support
-- [ ] HTML summary report + email/Slack alert on HIGH failures
+- [x] Oracle source support
+- [x] HTML summary report + email alert on HIGH failures
 - [ ] GitHub Actions CI
 
 ## Tech
 
-Python, Pandas, SQL, SQLite (local), Snowflake (target), pytest
+Python, Pandas, SQL, SQLite (local), Snowflake, Oracle, pytest
