@@ -33,7 +33,9 @@ logic into one place:
 | `dq_dataset_config` | Datasets under monitoring - source type, location, load type, owner |
 | `dq_rule_config` | One row per check - rule type, column, JSON params, severity, pass threshold |
 | `dq_run_log` | Run-level summary |
-| `dq_result_log` | Rule-level results: total, failed, pass %, PASS/FAIL |
+| `dq_result_log` | Rule-level results: total, failed, pass %, PASS/FAIL, message |
+| `dq_volume_history` | Row count per dataset per run (for volume checks) |
+| `dq_schema_baseline` | Expected columns and types per dataset (for drift checks) |
 
 ## Supported rule types
 
@@ -48,6 +50,20 @@ logic into one place:
 | `referential` | Value exists in another dataset (FK check) | `{"ref_dataset": "members", "ref_column": "member_id"}` |
 | `row_count` | Dataset has a minimum number of rows | `{"min_rows": 10}` |
 
+### Dataset-level monitors
+
+These look at the whole dataset and keep history between runs.
+
+| rule_type | What it checks | Example params |
+|---|---|---|
+| `freshness` | Newest timestamp in a column is not older than the limit | `{"max_age_hours": 24}` |
+| `volume_anomaly` | Row count is within X% of the average of the last N runs | `{"lookback_runs": 7, "tolerance_pct": 30}` |
+| `schema_drift` | No columns added, removed or changed type vs. the stored baseline | `{}` |
+
+The first run captures the baseline schema and the first volume point, so drift and
+volume alerts start from the second run. History lives in `dq_volume_history` and
+`dq_schema_baseline` (see `sql/ddl/03_monitoring_tables.sql`).
+
 Each rule has a `threshold_pct` - e.g. a zip-code format rule can pass at 95% while a
 primary key rule must be 100%. A failed `HIGH` severity rule marks the whole run as `FAILED`.
 
@@ -60,8 +76,23 @@ pip install -r requirements.txt
 
 python data/generate_sample_data.py   # creates data/sample/*.csv
 python run_dq.py                      # runs all active rules
+python run_dq.py --db dq.db           # keep history in a file so volume/drift checks have a baseline
 python -m pytest -q                   # unit + engine tests
 ```
+
+### Running against Snowflake
+
+Set `source_type = 'table'` and `source_location = 'DB.SCHEMA.TABLE'` for a dataset in
+`dq_dataset_config`, then:
+
+```bash
+pip install snowflake-connector-python
+cp .env.example .env      # fill in account, user, warehouse ...
+set -a; source .env; set +a
+python run_dq.py --db dq.db
+```
+
+Credentials are read from environment variables only - nothing is stored in the config tables.
 
 Sample output:
 
@@ -84,10 +115,14 @@ claims     member_exists                  1   99.17  FAIL
 │   └── sample/
 ├── sql/
 │   ├── ddl/01_metadata_tables.sql
-│   └── seed/02_seed_rules.sql
+│   ├── ddl/03_monitoring_tables.sql
+│   ├── seed/02_seed_rules.sql
+│   └── seed/04_seed_monitor_rules.sql
 ├── src/dq_framework/
 │   ├── metadata.py               # create/read config tables
-│   ├── rules.py                  # rule library + registry
+│   ├── rules.py                  # row-level rule library + registry
+│   ├── monitors.py               # freshness, volume, schema drift
+│   ├── connectors.py             # Snowflake reader
 │   └── engine.py                 # runs rules, writes logs
 ├── tests/
 └── run_dq.py
@@ -98,8 +133,8 @@ claims     member_exists                  1   99.17  FAIL
 - [x] Metadata tables + seed rules
 - [x] Rule library and engine with result logging
 - [x] Unit tests
-- [ ] Freshness, volume and schema-drift checks
-- [ ] Snowflake connector (run the same rules against Snowflake tables)
+- [x] Freshness, volume and schema-drift checks
+- [x] Snowflake connector (run the same rules against Snowflake tables)
 - [ ] Oracle source support
 - [ ] HTML summary report + email/Slack alert on HIGH failures
 - [ ] GitHub Actions CI
