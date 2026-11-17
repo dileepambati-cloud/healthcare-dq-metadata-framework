@@ -9,8 +9,8 @@ import sqlite3
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DDL_FILE = ROOT / "sql" / "ddl" / "01_metadata_tables.sql"
-SEED_FILE = ROOT / "sql" / "seed" / "02_seed_rules.sql"
+DDL_DIR = ROOT / "sql" / "ddl"
+SEED_DIR = ROOT / "sql" / "seed"
 
 
 def get_connection(db_path=":memory:"):
@@ -19,12 +19,18 @@ def get_connection(db_path=":memory:"):
     return conn
 
 
+def _run_sql_dir(conn, folder):
+    # files are numbered (01_, 02_ ...) so sorted order = run order
+    for path in sorted(folder.glob("*.sql")):
+        conn.executescript(path.read_text())
+
+
 def init_metadata(conn, seed=True):
-    conn.executescript(DDL_FILE.read_text())
+    _run_sql_dir(conn, DDL_DIR)
     if seed:
         already = conn.execute("SELECT COUNT(*) FROM dq_rule_config").fetchone()[0]
         if already == 0:
-            conn.executescript(SEED_FILE.read_text())
+            _run_sql_dir(conn, SEED_DIR)
     conn.commit()
 
 

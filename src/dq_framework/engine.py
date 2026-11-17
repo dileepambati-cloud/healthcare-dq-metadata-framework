@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from .connectors import read_table
 from .metadata import ROOT, get_active_datasets, get_active_rules
 from .rules import get_rule
 
@@ -22,17 +23,22 @@ def load_dataset(ds):
             path = ROOT / path
         # read everything as string first - type issues are DQ findings, not crashes
         return pd.read_csv(path, dtype=str, keep_default_na=False)
+    if ds["source_type"] == "table":
+        # source_location = DB.SCHEMA.TABLE in Snowflake
+        return read_table(ds["source_location"])
     raise NotImplementedError(f"source_type {ds['source_type']} not supported yet")
 
 
 def evaluate_rule(df, rule, context):
     fn = get_rule(rule["rule_type"])
-    failed_mask = fn(df, rule["column_name"], rule["rule_params"], context)
+    out = fn(df, rule["column_name"], rule["rule_params"], context)
+    # monitors return (mask, message); plain rules return just the mask
+    failed_mask, detail = out if isinstance(out, tuple) else (out, None)
     total = len(failed_mask)
     failed = int(failed_mask.sum())
     pass_pct = round(100.0 * (total - failed) / total, 2) if total else 0.0
     status = "PASS" if pass_pct >= float(rule["threshold_pct"]) else "FAIL"
-    return total, failed, pass_pct, status
+    return total, failed, pass_pct, status, detail
 
 
 def run(conn, run_id=None):
@@ -46,10 +52,11 @@ def run(conn, run_id=None):
     results = []
     for ds in datasets:
         df = context[ds["dataset_name"]]
+        context["_meta"] = {"conn": conn, "run_id": run_id, "dataset_name": ds["dataset_name"]}
         for rule in get_active_rules(conn, ds["dataset_id"]):
             try:
-                total, failed, pass_pct, status = evaluate_rule(df, rule, context)
-                msg = f"{failed} of {total} records failed"
+                total, failed, pass_pct, status, detail = evaluate_rule(df, rule, context)
+                msg = detail or f"{failed} of {total} records failed"
             except Exception as exc:  # a broken rule shouldn't stop the whole run
                 log.exception("rule %s errored", rule["rule_id"])
                 total, failed, pass_pct, status, msg = len(df), None, None, "ERROR", str(exc)[:1000]
