@@ -77,6 +77,11 @@ RULE_REGISTRY = {
     "row_count": row_count,
 }
 
+# dataset-level monitors live in their own module but are looked up the same way
+from .monitors import MONITOR_REGISTRY  # noqa: E402
+
+RULE_REGISTRY.update(MONITOR_REGISTRY)
+
 
 def get_rule(rule_type):
     try:
