@@ -7,11 +7,13 @@ from dq_framework import reporting  # noqa: E402
 
 RESULTS = [
     {"rule_id": 1, "dataset_name": "claims", "rule_name": "claim_id_unique", "column_name": "claim_id",
-     "severity": "HIGH", "failed_records": 2, "pass_pct": 98.3, "status": "FAIL", "message": "2 of 120 records failed"},
+     "severity": "HIGH", "failed_records": 2, "pass_pct": 98.3, "status": "FAIL",
+     "message": "2 of 120 records failed"},
     {"rule_id": 2, "dataset_name": "claims", "rule_name": "claims_freshness", "column_name": None,
      "severity": "HIGH", "failed_records": 0, "pass_pct": 100.0, "status": "PASS", "message": "ok"},
     {"rule_id": 3, "dataset_name": "members", "rule_name": "zip_format", "column_name": "zip_code",
-     "severity": "LOW", "failed_records": None, "pass_pct": None, "status": "ERROR", "message": "<bad> & broken"},
+     "severity": "LOW", "failed_records": None, "pass_pct": None, "status": "ERROR",
+     "message": "<bad> & broken"},
 ]
 
 
