@@ -9,8 +9,10 @@ Command line entry point.
 import argparse
 import logging
 import sys
+from pathlib import Path
 
-sys.path.insert(0, "src")
+# make src/ importable no matter which folder the script is run from
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
 from dq_framework.alerts import send_alert  # noqa: E402
 from dq_framework.engine import run  # noqa: E402
