@@ -1,5 +1,9 @@
 # Healthcare Data Quality & Metadata Framework
 
+[![CI](https://github.com/dileepambati-cloud/healthcare-dq-metadata-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/dileepambati-cloud/healthcare-dq-metadata-framework/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 A rule-driven data quality (DQ) engine for healthcare-style datasets (members, claims).
 Checks are **not hard-coded** - they live in metadata/config tables, and the engine
 reads them at runtime, runs each check, and logs every result. Adding a new check to a
@@ -132,9 +136,23 @@ claims     member_exists                  1   99.17  FAIL
 ...
 ```
 
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull request:
+
+1. **test** - `ruff` lint + full `pytest` suite on Python 3.10, 3.11 and 3.12
+2. **dq-sample-run** - runs the framework end to end on the sample data and uploads the
+   HTML report as a build artifact (open any run under the *Actions* tab to download it)
+
+## Adding checks
+
+See [docs/adding-a-rule.md](docs/adding-a-rule.md) - new checks are usually one `INSERT`,
+new rule types are one function plus a registry entry.
+
 ## Project structure
 
 ```
+├── .github/workflows/ci.yml       # lint + tests + sample run
 ├── data/
 │   ├── generate_sample_data.py   # synthetic members/claims with planted errors
 │   └── sample/
@@ -151,7 +169,9 @@ claims     member_exists                  1   99.17  FAIL
 │   ├── reporting.py              # HTML run report
 │   ├── alerts.py                 # email on HIGH failures
 │   └── engine.py                 # runs rules, writes logs
+├── docs/adding-a-rule.md
 ├── tests/
+├── pyproject.toml                # ruff + pytest settings
 └── run_dq.py
 ```
 
@@ -164,8 +184,13 @@ claims     member_exists                  1   99.17  FAIL
 - [x] Snowflake connector (run the same rules against Snowflake tables)
 - [x] Oracle source support
 - [x] HTML summary report + email alert on HIGH failures
-- [ ] GitHub Actions CI
+- [x] GitHub Actions CI
+- [ ] Schedule runs from an Airflow DAG
 
 ## Tech
 
-Python, Pandas, SQL, SQLite (local), Snowflake, Oracle, pytest
+Python, Pandas, SQL, SQLite (local), Snowflake, Oracle, pytest, ruff, GitHub Actions
+
+## License
+
+MIT
