@@ -87,4 +87,4 @@ def get_rule(rule_type):
     try:
         return RULE_REGISTRY[rule_type]
     except KeyError:
-        raise ValueError(f"Unknown rule_type '{rule_type}'. Known: {sorted(RULE_REGISTRY)}")
+        raise ValueError(f"Unknown rule_type '{rule_type}'. Known: {sorted(RULE_REGISTRY)}") from None
